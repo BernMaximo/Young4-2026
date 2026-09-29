@@ -77,11 +77,11 @@ function validateFields(body, { partial = false } = {}) { // Função para valid
   return { value: result };
 }
 
-function getOwnedQuery(id, clienteId) {
+function getOwnedQuery(id, clienteId) { // Função para criar uma query que verifica se o lançamento pertence ao cliente autenticado
   return { _id: id, cliente: new mongoose.Types.ObjectId(clienteId) };
 }
 
-function parseOptionalDate(query, name) {
+function parseOptionalDate(query, name) { // Função para analisar uma data opcional nos parâmetros da query, garantindo que seja uma data válida no formato YYYY-MM-DD
   if (query[name] === undefined) {
     return { value: undefined };
   }
