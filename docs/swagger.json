@@ -1,0 +1,391 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "Gerenciador de Finanças Pessoais",
+    "description": "Documentação da API do Gerenciador de Finanças Pessoais"
+  },
+  "host": "localhost:3000",
+  "basePath": "/api",
+  "schemes": [
+    "http"
+  ],
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Informe o token como: Bearer {token}"
+    }
+  },
+  "paths": {
+    "/transacoes": {
+      "post": {
+        "summary": "Criar receita ou despesa",
+        "description": "Cria um lançamento associado ao cliente autenticado. Envie a data como YYYY-MM-DD e o valor em reais com até duas casas decimais.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "body",
+          "in": "body",
+          "required": true,
+          "schema": { "$ref": "#/definitions/TransacaoInput" }
+        }],
+        "responses": {
+          "201": { "description": "Lançamento criado." },
+          "400": { "description": "Campos inválidos." },
+          "401": { "description": "Token ausente, inválido ou expirado." }
+        }
+      },
+      "get": {
+        "summary": "Listar lançamentos",
+        "description": "Lista somente os lançamentos do cliente autenticado. Filtros opcionais: tipo, desde e ate; ate é inclusivo.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "tipo", "in": "query", "type": "string", "enum": ["Receita", "Despesa"] },
+          { "name": "desde", "in": "query", "type": "string", "format": "date" },
+          { "name": "ate", "in": "query", "type": "string", "format": "date" }
+        ],
+        "responses": {
+          "200": { "description": "Lançamentos ordenados por data, da mais recente para a mais antiga." },
+          "400": { "description": "Filtro inválido." },
+          "401": { "description": "Token ausente, inválido ou expirado." }
+        }
+      }
+    },
+    "/transacoes/resumo-mensal": {
+      "get": {
+        "summary": "Obter resumo mensal",
+        "description": "Retorna receitas, despesas e saldo do mês informado para o cliente autenticado. As datas dos lançamentos são interpretadas no calendário UTC.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "mes", "in": "query", "required": true, "type": "integer", "minimum": 1, "maximum": 12 },
+          { "name": "ano", "in": "query", "required": true, "type": "integer", "minimum": 1, "maximum": 9999 }
+        ],
+        "responses": {
+          "200": {
+            "description": "Totais mensais em reais.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "mes": { "type": "integer", "example": 9 },
+                "ano": { "type": "integer", "example": 2026 },
+                "receitas": { "type": "number", "format": "double", "example": 3500 },
+                "despesas": { "type": "number", "format": "double", "example": 1200.5 },
+                "saldo": { "type": "number", "format": "double", "example": 2299.5 }
+              }
+            }
+          },
+          "400": { "description": "Mês ou ano inválido." },
+          "401": { "description": "Token ausente, inválido ou expirado." }
+        }
+      }
+    },
+    "/transacoes/{id}": {
+      "parameters": [{
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "type": "string",
+        "description": "ID MongoDB do lançamento"
+      }],
+      "get": {
+        "summary": "Obter lançamento",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Lançamento encontrado." },
+          "400": { "description": "ID inválido." },
+          "401": { "description": "Token ausente, inválido ou expirado." },
+          "404": { "description": "Lançamento não encontrado para este usuário." }
+        }
+      },
+      "patch": {
+        "summary": "Atualizar lançamento",
+        "description": "Atualiza parcialmente um lançamento pertencente ao cliente autenticado.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "body",
+          "in": "body",
+          "required": true,
+          "schema": { "$ref": "#/definitions/TransacaoUpdate" }
+        }],
+        "responses": {
+          "200": { "description": "Lançamento atualizado." },
+          "400": { "description": "ID ou dados inválidos." },
+          "401": { "description": "Token ausente, inválido ou expirado." },
+          "404": { "description": "Lançamento não encontrado para este usuário." }
+        }
+      },
+      "delete": {
+        "summary": "Excluir lançamento",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Lançamento excluído." },
+          "400": { "description": "ID inválido." },
+          "401": { "description": "Token ausente, inválido ou expirado." },
+          "404": { "description": "Lançamento não encontrado para este usuário." }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "summary": "Entrar com CPF e senha",
+        "description": "Valida as credenciais e retorna um JWT válido por uma hora.",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["cpf", "senha"],
+              "properties": {
+                "cpf": {
+                  "type": "string",
+                  "example": "12345678900"
+                },
+                "senha": {
+                  "type": "string",
+                  "example": "minha-senha"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Login realizado com sucesso; retorna token e dados básicos do cliente."
+          },
+          "400": {
+            "description": "CPF ou senha não informados corretamente."
+          },
+          "401": {
+            "description": "CPF ou senha inválidos."
+          }
+        }
+      }
+    },
+    "/clientes": {
+      "post": {
+        "summary": "Criar um novo cliente",
+        "description": "Adiciona um novo cliente ao sistema.",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Dados do cliente a ser criado",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ClienteInput"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Cliente criado com sucesso"
+          },
+          "500": {
+            "description": "Erro interno do servidor"
+          }
+        }
+      },
+      "get": {
+        "summary": "Listar todos os clientes",
+        "description": "Retorna uma lista de clientes cadastrados.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de clientes retornada com sucesso",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Cliente"
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno do servidor"
+          },
+          "401": {
+            "description": "Token ausente, inválido ou expirado."
+          }
+        }
+      }
+    },
+    "/clientes/{id}": {
+      "get": {
+        "summary": "Obter cliente por ID",
+        "description": "Retorna os detalhes de um cliente específico pelo ID.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID do cliente"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cliente encontrado",
+            "schema": {
+              "$ref": "#/definitions/Cliente"
+            }
+          },
+          "404": {
+            "description": "Cliente não encontrado"
+          },
+          "500": {
+            "description": "Erro interno do servidor"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Atualizar um cliente",
+        "description": "Atualiza os dados de um cliente existente pelo ID. Se senha for enviada, ela será atualizada com hash.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID do cliente"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Novos dados do cliente",
+            "schema": {
+              "$ref": "#/definitions/ClienteInput"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cliente atualizado com sucesso"
+          },
+          "404": {
+            "description": "Cliente não encontrado"
+          },
+          "500": {
+            "description": "Erro interno do servidor"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remover um cliente",
+        "description": "Remove um cliente do sistema pelo ID.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID do cliente"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cliente removido com sucesso"
+          },
+          "404": {
+            "description": "Cliente não encontrado"
+          },
+          "500": {
+            "description": "Erro interno do servidor"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "ClienteInput": {
+      "type": "object",
+      "required": ["cpf", "senha"],
+      "properties": {
+        "nome": {
+          "type": "string",
+          "example": "João da Silva"
+        },
+        "sobrenome": {
+          "type": "string",
+          "example": "da Silva"
+        },
+        "cpf": {
+          "type": "string",
+          "example": "12345678900"
+        },
+        "genre": {
+          "type": "string"
+        },
+        "senha": {
+          "type": "string",
+          "example": "minha-senha"
+        }
+      }
+    },
+    "TransacaoInput": {
+      "type": "object",
+      "required": ["tipo", "valor", "data"],
+      "properties": {
+        "tipo": { "type": "string", "enum": ["Receita", "Despesa"] },
+        "valor": { "type": "number", "format": "double", "minimum": 0.01, "example": 120.5 },
+        "data": { "type": "string", "format": "date", "example": "2026-09-29" },
+        "descricao": { "type": "string", "example": "Salário" },
+        "tag": { "type": "string", "example": "Trabalho" },
+        "detalhes": { "type": "string" }
+      }
+    },
+    "TransacaoUpdate": {
+      "type": "object",
+      "properties": {
+        "tipo": { "type": "string", "enum": ["Receita", "Despesa"] },
+        "valor": { "type": "number", "format": "double", "minimum": 0.01 },
+        "data": { "type": "string", "format": "date" },
+        "descricao": { "type": "string" },
+        "tag": { "type": "string" },
+        "detalhes": { "type": "string" }
+      }
+    },
+    "Cliente": {
+      "type": "object",
+      "properties": {
+        "_id": {
+          "type": "string",
+          "example": "65f123456789012345678901"
+        },
+        "nome": {
+          "type": "string",
+          "example": "João da Silva"
+        },
+        "sobrenome": {
+          "type": "string",
+          "example": "da Silva"
+        },
+        "cpf": {
+          "type": "string",
+          "example": "12345678900"
+        }
+      }
+    }
+  }
+}
