@@ -129,7 +129,7 @@
     "/login": {
       "post": {
         "summary": "Entrar com CPF e senha",
-        "description": "Valida as credenciais e retorna um JWT válido por uma hora.",
+        "description": "Valida as credenciais do cliente e retorna um token de acesso válido por uma hora e um refresh token válido por sete dias.",
         "parameters": [
           {
             "name": "body",
@@ -153,7 +153,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Login realizado com sucesso; retorna token e dados básicos do cliente."
+            "description": "Login realizado com sucesso; retorna token, refreshToken e dados básicos do cliente."
           },
           "400": {
             "description": "CPF ou senha não informados corretamente."
@@ -164,10 +164,60 @@
         }
       }
     },
+    "/admin/login": {
+      "post": {
+        "summary": "Entrar como administrador",
+        "description": "Valida ADMIN_CPF e ADMIN_PASSWORD configurados no ambiente e retorna um token de acesso e um refresh token.",
+        "parameters": [{
+          "name": "body",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["cpf", "senha"],
+            "properties": {
+              "cpf": { "type": "string", "example": "11122233344" },
+              "senha": { "type": "string" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Login administrativo realizado." },
+          "400": { "description": "CPF ou senha não informados corretamente." },
+          "401": { "description": "CPF ou senha inválidos." },
+          "500": { "description": "Credenciais administrativas ou chave JWT não configuradas." }
+        }
+      }
+    },
+    "/refresh-token": {
+      "post": {
+        "summary": "Renovar tokens",
+        "description": "Aceita somente refresh tokens válidos e emite um novo token de acesso (1 hora) e refresh token (7 dias). Os refresh tokens são stateless e não podem ser revogados antes de expirar.",
+        "parameters": [{
+          "name": "body",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": ["refreshToken"],
+            "properties": {
+              "refreshToken": { "type": "string" }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "description": "Tokens renovados." },
+          "400": { "description": "Refresh token não informado." },
+          "401": { "description": "Refresh token inválido ou expirado." },
+          "500": { "description": "Autenticação não configurada no servidor." }
+        }
+      }
+    },
     "/clientes": {
       "post": {
         "summary": "Criar um novo cliente",
-        "description": "Adiciona um novo cliente ao sistema.",
+        "description": "Adiciona um novo cliente ao sistema. Restrito ao administrador.",
+        "security": [{ "BearerAuth": [] }],
         "parameters": [
           {
             "name": "body",
@@ -183,6 +233,12 @@
           "201": {
             "description": "Cliente criado com sucesso"
           },
+          "401": {
+            "description": "Token ausente, inválido ou expirado."
+          },
+          "403": {
+            "description": "Acesso restrito ao administrador."
+          },
           "500": {
             "description": "Erro interno do servidor"
           }
@@ -190,7 +246,7 @@
       },
       "get": {
         "summary": "Listar todos os clientes",
-        "description": "Retorna uma lista de clientes cadastrados.",
+        "description": "Retorna uma lista de clientes cadastrados. Restrito ao administrador.",
         "security": [
           {
             "BearerAuth": []
@@ -211,6 +267,9 @@
           },
           "401": {
             "description": "Token ausente, inválido ou expirado."
+          },
+          "403": {
+            "description": "Acesso restrito ao administrador."
           }
         }
       }
@@ -218,7 +277,7 @@
     "/clientes/{id}": {
       "get": {
         "summary": "Obter cliente por ID",
-        "description": "Retorna os detalhes de um cliente específico pelo ID.",
+        "description": "Retorna os detalhes de um cliente específico pelo ID. Restrito ao administrador.",
         "security": [
           {
             "BearerAuth": []
@@ -243,6 +302,8 @@
           "404": {
             "description": "Cliente não encontrado"
           },
+          "401": { "description": "Token ausente, inválido ou expirado." },
+          "403": { "description": "Acesso restrito ao administrador." },
           "500": {
             "description": "Erro interno do servidor"
           }
@@ -250,7 +311,7 @@
       },
       "patch": {
         "summary": "Atualizar um cliente",
-        "description": "Atualiza os dados de um cliente existente pelo ID. Se senha for enviada, ela será atualizada com hash.",
+        "description": "Atualiza os dados de um cliente existente pelo ID. Se senha for enviada, ela será atualizada com hash. Restrito ao administrador.",
         "security": [
           {
             "BearerAuth": []
@@ -281,6 +342,8 @@
           "404": {
             "description": "Cliente não encontrado"
           },
+          "401": { "description": "Token ausente, inválido ou expirado." },
+          "403": { "description": "Acesso restrito ao administrador." },
           "500": {
             "description": "Erro interno do servidor"
           }
@@ -288,7 +351,7 @@
       },
       "delete": {
         "summary": "Remover um cliente",
-        "description": "Remove um cliente do sistema pelo ID.",
+        "description": "Remove um cliente do sistema pelo ID. Restrito ao administrador.",
         "security": [
           {
             "BearerAuth": []
@@ -310,6 +373,8 @@
           "404": {
             "description": "Cliente não encontrado"
           },
+          "401": { "description": "Token ausente, inválido ou expirado." },
+          "403": { "description": "Acesso restrito ao administrador." },
           "500": {
             "description": "Erro interno do servidor"
           }

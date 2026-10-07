@@ -77,6 +77,13 @@ test("transaction routes validate input, protect access and isolate each user's 
     const unauthorized = await request("/");
     assert.equal(unauthorized.status, 401);
 
+    const adminToken = jwt.sign(
+      { tokenType: "access", role: "admin" },
+      secret,
+      { subject: "admin", expiresIn: "1h" }
+    );
+    assert.equal((await request("/", { token: adminToken })).status, 403);
+
     const userToken = tokenFor(userId);
     const invalidBody = await request("/", {
       method: "POST",
