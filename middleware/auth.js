@@ -26,6 +26,7 @@ function createAccessToken(identity, role = "customer") {
   );
 }
 
+// O refresh token expira em 7 dias e permite renovar o access token sem pedir nova senha.
 function createRefreshToken(identity, role = "customer") {
   return jwt.sign(
     { tokenType: "refresh", role },

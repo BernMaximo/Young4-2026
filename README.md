@@ -1,15 +1,15 @@
-# Young4-2026 API
+# API Young4-2026
 
-## Authentication
+## Autenticação
 
-Set these environment variables before starting the server:
+Defina as seguintes variáveis ​​de ambiente antes de iniciar o servidor:
 
-- `JWT_SECRET`: secret with at least 32 bytes, used to sign JWTs.
-- `ADMIN_CPF`: administrator CPF (11 digits).
-- `ADMIN_PASSWORD`: administrator password.
+- `JWT_SECRET`: segredo com pelo menos 32 bytes, usado para assinar JWTs.
+- `ADMIN_CPF`: CPF do administrador (11 dígitos).
+- `ADMIN_PASSWORD`: senha do administrador.
 
-Customer authentication remains available at `POST /api/login`. Administrator authentication is at `POST /api/admin/login`. Both return `token` (access token, valid for one hour) and `refreshToken` (valid for seven days).
+A autenticação de clientes permanece disponível em `POST /api/login`. A autenticação de administrador é realizada em `POST /api/admin/login`. Ambos retornam um `token` (token de acesso, válido por uma hora) e um `refreshToken` (válido por sete dias).
 
-Use `POST /api/refresh-token` with `{ "refreshToken": "..." }` to receive a new token pair. Refresh tokens are signed JWTs and are not stored, so they cannot be revoked before expiration; previously issued refresh tokens remain valid until then.
+Utilize `POST /api/refresh-token` com `{ "refreshToken": "..." }` para obter um novo par de tokens. Os *refresh tokens* são JWTs assinados e não são armazenados; portanto, não podem ser revogados antes da expiração, e *refresh tokens* emitidos anteriormente permanecem válidos até esse momento.
 
-All client management operations (`POST` and `GET /api/clientes`, and `GET`, `PATCH`, and `DELETE /api/clientes/:id`) require an administrator access token in the `Authorization: Bearer <token>` header. Customer tokens cannot perform these operations. Transaction routes remain restricted to authenticated customers.
+Todas as operações de gerenciamento de clientes (`POST` e `GET /api/clientes`, bem como `GET`, `PATCH` e `DELETE /api/clientes/:id`) exigem um token de acesso de administrador no cabeçalho `Authorization: Bearer <token>`. Tokens de clientes não podem realizar essas operações. As rotas de transação permanecem restritas a clientes autenticados.
