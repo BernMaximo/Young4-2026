@@ -1,7 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const Transacao = require("../models/transacao");
-const { authenticateToken } = require("../middleware/auth");
+const { authenticateToken, requireCustomer } = require("../middleware/auth");
 
 const router = express.Router();
 const allowedFields = new Set(["tipo", "valor", "data", "descricao", "tag", "detalhes"]);
@@ -90,7 +90,7 @@ function parseOptionalDate(query, name) { // Função para analisar uma data opc
   return date ? { value: date } : { error: `O filtro '${name}' deve ser uma data válida no formato YYYY-MM-DD.` };
 }
 
-router.use(authenticateToken);
+router.use(authenticateToken, requireCustomer);
 
 router.post("/", async (req, res) => {
   try {

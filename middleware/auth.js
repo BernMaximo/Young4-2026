@@ -8,16 +8,39 @@ function getJwtSecret() { // Função para obter a chave secreta do JWT a partir
   return secret;
 }
 
-function createAccessToken(cliente) { // Função para criar um token de acesso JWT para o cliente
+function getSubject(identity) {
+  return typeof identity === "string" ? identity : identity._id.toString();
+}
+
+function createAccessToken(identity, role = "customer") {
   return jwt.sign(
-    {},
+    { tokenType: "access", role },
     getJwtSecret(),
     {
       algorithm: "HS256",
       expiresIn: "1h",
-      subject: cliente._id.toString()
+      subject: getSubject(identity)
     }
   );
+}
+
+function createRefreshToken(identity, role = "customer") {
+  return jwt.sign(
+    { tokenType: "refresh", role },
+    getJwtSecret(),
+    {
+      algorithm: "HS256",
+      expiresIn: "7d",
+      subject: getSubject(identity)
+    }
+  );
+}
+
+function createTokenPair(identity, role = "customer") {
+  return {
+    token: createAccessToken(identity, role),
+    refreshToken: createRefreshToken(identity, role)
+  };
 }
 
 function authenticateToken(req, res, next) {  // Middleware para autenticar o token JWT enviado no cabeçalho da requisição
@@ -44,12 +67,40 @@ function authenticateToken(req, res, next) {  // Middleware para autenticar o to
     return res.status(401).json({ error: "Token inválido ou expirado." });
   }
 
-  if (typeof payload === "string" || typeof payload.sub !== "string") {
+  if (
+    !payload
+    || typeof payload !== "object"
+    || typeof payload.sub !== "string"
+    || (payload.tokenType !== undefined && payload.tokenType !== "access")
+    || (payload.role !== undefined && payload.role !== "customer" && payload.role !== "admin")
+  ) {
     return res.status(401).json({ error: "Token de autenticação inválido." });
   }
 
-  req.auth = { id: payload.sub };
+  req.auth = { id: payload.sub, role: payload.role || "customer" };
   return next();
 }
 
-module.exports = { authenticateToken, createAccessToken };
+function requireAdmin(req, res, next) {
+  if (req.auth.role !== "admin") {
+    return res.status(403).json({ error: "Acesso restrito ao administrador." });
+  }
+  return next();
+}
+
+function requireCustomer(req, res, next) {
+  if (req.auth.role !== "customer") {
+    return res.status(403).json({ error: "Acesso restrito a clientes." });
+  }
+  return next();
+}
+
+module.exports = {
+  authenticateToken,
+  createAccessToken,
+  createRefreshToken,
+  createTokenPair,
+  getJwtSecret,
+  requireAdmin,
+  requireCustomer
+};

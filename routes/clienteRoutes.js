@@ -1,8 +1,14 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const router = express.Router();
 const Cliente = require("../models/cliente");
-const { authenticateToken, createAccessToken } = require("../middleware/auth");
+const {
+  authenticateToken,
+  createTokenPair,
+  getJwtSecret,
+  requireAdmin
+} = require("../middleware/auth");
 
 function normalizeCPF(cpf) {  // Função para normalizar o CPF, removendo caracteres não numéricos
   return typeof cpf === "string" || typeof cpf === "number"
@@ -20,7 +26,7 @@ function getRequestBody(req) {  // Função para obter o corpo da requisição, 
     : {};
 }
 
-router.post("/clientes", async (req, res) => {
+router.post("/clientes", authenticateToken, requireAdmin, async (req, res) => {
   try {
     const body = getRequestBody(req);
     const { nome, sobrenome, genre, senha } = body;
@@ -85,7 +91,7 @@ router.post("/login", async (req, res) => {
     }
 
     return res.json({
-      token: createAccessToken(cliente),
+      ...createTokenPair(cliente),
       cliente: {
         id: cliente._id,
         nome: cliente.nome,
@@ -99,7 +105,78 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.use(authenticateToken);
+router.post("/admin/login", (req, res) => {
+  const body = getRequestBody(req);
+  const cpf = normalizeCPF(body.cpf);
+  const { senha } = body;
+  const adminCpf = normalizeCPF(process.env.ADMIN_CPF);
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!isValidCPFFormat(adminCpf) || typeof adminPassword !== "string" || !adminPassword) {
+    console.error("Configuração de credenciais do administrador inválida.");
+    return res.status(500).json({ error: "Autenticação administrativa não configurada no servidor." });
+  }
+
+  if (!isValidCPFFormat(cpf) || typeof senha !== "string" || !senha) {
+    return res.status(400).json({ error: "Informe um CPF com 11 dígitos e uma senha." });
+  }
+
+  if (cpf !== adminCpf || senha !== adminPassword) {
+    return res.status(401).json({ error: "CPF ou senha inválidos." });
+  }
+
+  try {
+    return res.json({
+      ...createTokenPair("admin", "admin"),
+      admin: { cpf: adminCpf }
+    });
+  } catch (err) {
+    console.error("Erro ao realizar login administrativo:", err);
+    return res.status(500).json({ error: "Erro ao realizar login administrativo." });
+  }
+});
+
+router.post("/refresh-token", (req, res) => {
+  const body = getRequestBody(req);
+  if (typeof body.refreshToken !== "string" || !body.refreshToken) {
+    return res.status(400).json({ error: "Informe um refresh token válido." });
+  }
+
+  let secret;
+  try {
+    secret = getJwtSecret();
+  } catch (err) {
+    console.error("Configuração JWT inválida:", err);
+    return res.status(500).json({ error: "Autenticação não configurada no servidor." });
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(body.refreshToken, secret, { algorithms: ["HS256"] });
+  } catch (_err) {
+    return res.status(401).json({ error: "Refresh token inválido ou expirado." });
+  }
+
+  if (
+    !payload
+    || typeof payload !== "object"
+    || typeof payload.sub !== "string"
+    || payload.tokenType !== "refresh"
+    || (payload.role !== "customer" && payload.role !== "admin")
+    || (payload.role === "admin" && payload.sub !== "admin")
+  ) {
+    return res.status(401).json({ error: "Refresh token inválido ou expirado." });
+  }
+
+  try {
+    return res.json(createTokenPair(payload.sub, payload.role));
+  } catch (err) {
+    console.error("Erro ao renovar tokens:", err);
+    return res.status(500).json({ error: "Erro ao renovar tokens." });
+  }
+});
+
+router.use(authenticateToken, requireAdmin);
 
 router.get("/clientes", async (_req, res) => {
   try {
