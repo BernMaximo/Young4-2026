@@ -8,10 +8,12 @@ function getJwtSecret() { // Função para obter a chave secreta do JWT a partir
   return secret;
 }
 
+// A assinatura do JWT usa o identificador do usuário para saber quem está autenticado em cada requisição.
 function getSubject(identity) {
   return typeof identity === "string" ? identity : identity._id.toString();
 }
 
+// O access token expira em 1 hora e carrega o papel do usuário para autorizar ações específicas.
 function createAccessToken(identity, role = "customer") {
   return jwt.sign(
     { tokenType: "access", role },
@@ -36,6 +38,7 @@ function createRefreshToken(identity, role = "customer") {
   );
 }
 
+// O par de tokens separa acesso curto e renovação longa, mantendo o fluxo de autenticação mais seguro.
 function createTokenPair(identity, role = "customer") {
   return {
     token: createAccessToken(identity, role),
@@ -44,6 +47,7 @@ function createTokenPair(identity, role = "customer") {
 }
 
 function authenticateToken(req, res, next) {  // Middleware para autenticar o token JWT enviado no cabeçalho da requisição
+  // O cabeçalho Authorization deve seguir o padrão Bearer <token> para que a sessão seja validada.
   const authorization = req.get("authorization");
   const match = authorization && /^Bearer\s+(\S+)$/i.exec(authorization);
 
@@ -81,6 +85,7 @@ function authenticateToken(req, res, next) {  // Middleware para autenticar o to
   return next();
 }
 
+// Regras de autorização por papel deixam claro que o admin tem acesso a operações exclusivas do painel de clientes.
 function requireAdmin(req, res, next) {
   if (req.auth.role !== "admin") {
     return res.status(403).json({ error: "Acesso restrito ao administrador." });
@@ -88,6 +93,7 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
+// Clientes autenticados não conseguem agir em endpoints administrativos, preservando a separação de papéis.
 function requireCustomer(req, res, next) {
   if (req.auth.role !== "customer") {
     return res.status(403).json({ error: "Acesso restrito a clientes." });

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-
+// Centraliza a conexão com o MongoDB para que o restante da aplicação não precise repetir a URL da base.
 const connectDB = async () => {
  try {
    await mongoose.connect('mongodb://localhost:27017/LivrariaDB');

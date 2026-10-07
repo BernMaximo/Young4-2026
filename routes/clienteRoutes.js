@@ -10,22 +10,26 @@ const {
   requireAdmin
 } = require("../middleware/auth");
 
+// A normalização do CPF impede que a validação quebre quando o cliente manda pontos, traços ou espaços.
 function normalizeCPF(cpf) {  // Função para normalizar o CPF, removendo caracteres não numéricos
   return typeof cpf === "string" || typeof cpf === "number"
     ? String(cpf).replace(/\D/g, "")
     : "";
 }
 
+// O formato do CPF é validado em 11 dígitos para manter consistência entre cadastros e autenticações.
 function isValidCPFFormat(cpf) {  // Função para validar o formato do CPF (deve ter exatamente 11 dígitos)
   return /^\d{11}$/.test(cpf);
 }
 
+// O payload da requisição precisa ser um objeto simples para evitar problemas de parsing em endpoints JSON.
 function getRequestBody(req) {  // Função para obter o corpo da requisição, garantindo que seja um objeto
   return req.body && typeof req.body === "object" && !Array.isArray(req.body)
     ? req.body
     : {};
 }
 
+// A criação do cliente pelo admin exige autenticação e papel administrativo, separando controle e acesso do cliente.
 router.post("/clientes", authenticateToken, requireAdmin, async (req, res) => {
   try {
     const body = getRequestBody(req);
@@ -51,6 +55,7 @@ router.post("/clientes", authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// O login do cliente aceita CPF normalizado e verifica a senha hashada ou legada antes de emitir tokens.
 router.post("/login", async (req, res) => {
   try {
     const body = getRequestBody(req);
@@ -105,6 +110,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// O login administrativo usa credenciais fixas do ambiente, permitindo gerar tokens de nível admin sem armazenar senha no banco.
 router.post("/admin/login", (req, res) => {
   const body = getRequestBody(req);
   const cpf = normalizeCPF(body.cpf);
@@ -136,6 +142,7 @@ router.post("/admin/login", (req, res) => {
   }
 });
 
+// O refresh token renova a sessão sem pedir nova senha, desde que o JWT de atualização seja válido e pertença ao mesmo papel.
 router.post("/refresh-token", (req, res) => {
   const body = getRequestBody(req);
   if (typeof body.refreshToken !== "string" || !body.refreshToken) {
@@ -176,6 +183,7 @@ router.post("/refresh-token", (req, res) => {
   }
 });
 
+// A partir deste ponto, todas as rotas de cliente exigem autenticação e perfil administrativo.
 router.use(authenticateToken, requireAdmin);
 
 router.get("/clientes", async (_req, res) => {

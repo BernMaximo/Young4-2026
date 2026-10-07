@@ -6,10 +6,12 @@ const { authenticateToken, requireCustomer } = require("../middleware/auth");
 const router = express.Router();
 const allowedFields = new Set(["tipo", "valor", "data", "descricao", "tag", "detalhes"]);
 
+// Verifica se o payload tem o formato esperado antes que a API tente validar campos individuais.
 function isObjectBody(body) { // Função para verificar se o corpo da requisição é um objeto válido
   return body !== null && typeof body === "object" && !Array.isArray(body);
 }
 
+// A data é aceita no formato ISO de calendário e convertida em Date para permitir comparações no MongoDB.
 function parseDate(value) { // Função para analisar uma string de data no formato YYYY-MM-DD e retornar um objeto Date válido
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return null;
@@ -21,6 +23,7 @@ function parseDate(value) { // Função para analisar uma string de data no form
     : date;
 }
 
+// O valor monetário precisa ser positivo, estável e arredondado para evitar inconsistências de centavos.
 function parseMoney(value) {  // Função para analisar um valor monetário, garantindo que seja um número positivo com no máximo duas casas decimais
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     return null;
@@ -30,6 +33,7 @@ function parseMoney(value) {  // Função para analisar um valor monetário, gar
   return Math.abs(value * 100 - Math.round(value * 100)) < 1e-8 ? rounded : null;
 }
 
+// A validação centraliza regras de negócio para garantir que cada lançamento do cliente siga o mesmo formato.
 function validateFields(body, { partial = false } = {}) { // Função para validar os campos do corpo da requisição, garantindo que sejam válidos e retornando um objeto com os valores validados
   if (!isObjectBody(body)) {
     return { error: "O corpo da requisição deve ser um objeto JSON." };
@@ -77,10 +81,12 @@ function validateFields(body, { partial = false } = {}) { // Função para valid
   return { value: result };
 }
 
+// A consulta de posse garante que um cliente só veja e altere seus próprios registros, nunca os de outro usuário.
 function getOwnedQuery(id, clienteId) { // Função para criar uma query que verifica se o lançamento pertence ao cliente autenticado
   return { _id: id, cliente: new mongoose.Types.ObjectId(clienteId) };
 }
 
+// A data de filtro opcional reconhece o formato yyyy-mm-dd e rejeita entradas inválidas antes de consultar o banco.
 function parseOptionalDate(query, name) { // Função para analisar uma data opcional nos parâmetros da query, garantindo que seja uma data válida no formato YYYY-MM-DD
   if (query[name] === undefined) {
     return { value: undefined };
@@ -90,6 +96,7 @@ function parseOptionalDate(query, name) { // Função para analisar uma data opc
   return date ? { value: date } : { error: `O filtro '${name}' deve ser uma data válida no formato YYYY-MM-DD.` };
 }
 
+// Todas as rotas de transações exigem token do cliente e impedem acesso de administradores ou usuários não autenticados.
 router.use(authenticateToken, requireCustomer);
 
 router.post("/", async (req, res) => {
@@ -110,6 +117,7 @@ router.post("/", async (req, res) => {
   }
 });
 
+// O resumo mensal agrega receitas e despesas do cliente para um período específico e devolve o saldo final.
 router.get("/resumo-mensal", async (req, res) => {
   try {
     const mes = Number(req.query.mes);

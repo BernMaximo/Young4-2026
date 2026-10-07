@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+
+// O schema do cliente representa a identidade do usuário do sistema e guarda dados de acesso essenciais.
 const clienteSchema = new mongoose.Schema({
    nome: { type: String },
    sobrenome: { type: String },
@@ -7,6 +9,8 @@ const clienteSchema = new mongoose.Schema({
    senha: { type: String, required: true, select: false },
    createdAt: { type: Date, default: (Date.now) }
 });
+
+// Ao serializar o documento, a senha é removida para evitar que ela seja exposta em respostas HTTP.
 clienteSchema.set('toJSON', {
    transform: (_doc, ret) => {
       delete ret.senha;
