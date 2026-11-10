@@ -16,13 +16,14 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./docs/swagger.json');
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
+// As rotas mais específicas devem ser montadas antes do router genérico de clientes, que aplica autorização administrativa.
+const transacaoRoutes = require('./routes/transacaoRoutes');
+app.use('/api/transacoes', transacaoRoutes);
+
 // Chamada das rotas do cliente
 // A API agrupa os endpoints de clientes e finanças em namespaces distintos para separar responsabilidades.
 const clienteRoutes = require('./routes/clienteRoutes');
 app.use('/api', clienteRoutes);
-
-const transacaoRoutes = require('./routes/transacaoRoutes');    // Adicionar a const transacaoRoutes para importar as rotas de transações
-app.use('/api/transacoes', transacaoRoutes);
 
 // A conexão com o MongoDB acontece ao subir o servidor, antes de receber requisições reais.
 connectDB();

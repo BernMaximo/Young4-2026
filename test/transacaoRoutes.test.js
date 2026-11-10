@@ -4,9 +4,10 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const Transacao = require("../models/transacao");
+const clienteRoutes = require("../routes/clienteRoutes");
 const transacaoRoutes = require("../routes/transacaoRoutes");
 
-test("transaction routes validate input, protect access and isolate each user's data", async () => {
+test("transaction routes validate input, protect access and isolate each user's data in app mount order", async () => {
   const secretOriginal = process.env.JWT_SECRET;
   const secret = "transaction-api-test-secret-at-least-32-bytes";
   const userId = "64a000000000000000000001";
@@ -60,6 +61,7 @@ test("transaction routes validate input, protect access and isolate each user's 
   const app = express();
   app.use(express.json());
   app.use("/api/transacoes", transacaoRoutes);
+  app.use("/api", clienteRoutes);
   const server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}/api/transacoes`;
@@ -82,7 +84,9 @@ test("transaction routes validate input, protect access and isolate each user's 
       secret,
       { subject: "admin", expiresIn: "1h" }
     );
-    assert.equal((await request("/", { token: adminToken })).status, 403);
+    const adminDenied = await request("/", { token: adminToken });
+    assert.equal(adminDenied.status, 403);
+    assert.deepEqual(await adminDenied.json(), { error: "Acesso restrito a clientes." });
 
     const userToken = tokenFor(userId);
     const invalidBody = await request("/", {
